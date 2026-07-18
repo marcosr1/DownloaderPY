@@ -1,10 +1,11 @@
 import threading
 import customtkinter as ctk
 import yt_dlp
-from io import BytesIO
+import io
 import urllib.request
 from PIL import Image
 import requests
+import yt_dlp
 
 from main import baixar_mp3, baixar_mp4
 
@@ -16,15 +17,20 @@ class baixador(ctk.CTk):
         super().__init__()
 
         self.title("Baixador de Vídeos e Áudios")
-        self.geometry("720x380")
+        self.geometry("720x580")
 
         self.configure(fg_color="#121212")
 
         self.label = ctk.CTkLabel(self, text="Cole o link do vídeo:", font=ctk.CTkFont("Segoe UI", 24, "bold"))
         self.label.pack(pady=10)
 
-        self.url_input = ctk.CTkEntry(self, width=400, placeholder_text="Cole o link do YouTube aqui...", border_width=1, placeholder_text_color="#555555", fg_color="#1A1A1A", corner_radius=8)
+        self.url_var = ctk.StringVar()
+        self.url_var.trace_add("write", self.ao_alterar_link) 
+        
+        self.url_input = ctk.CTkEntry(self, width=400, textvariable=self.url_var, placeholder_text="Cole o link aqui...")
         self.url_input.pack(pady=10)
+        
+        self.delay_busca = None
 
         self.formato_var = ctk.StringVar(value="MP3")
         self.selecao_formato = ctk.CTkSegmentedButton(self, values=["MP3", "MP4"], variable=self.formato_var, width=200, command=self.alterarOpcoes, border_width=1, selected_color="#ff0000", fg_color="#1A1A1A", corner_radius=8)
@@ -39,6 +45,9 @@ class baixador(ctk.CTk):
         self.cancelar_download = False 
         self.btn_cancelar = ctk.CTkButton(self, text="Cancelar", font=("Segoe UI", 12, "bold"), command=self.clicar_cancelar, width=100, height=25, corner_radius=8, fg_color="#ff0000", hover_color="#B91C1C", state="disabled") 
         self.btn_cancelar.pack(pady=10)
+
+        self.label_capa = ctk.CTkLabel(self, text="")
+        self.label_capa.pack(pady=10)
 
         self.status_label = ctk.CTkLabel(self, text="Aguardando link...", font=ctk.CTkFont(size=12))
         self.status_label.pack(pady=10)
@@ -62,6 +71,44 @@ class baixador(ctk.CTk):
         self.cancelar_download = True
         self.status_label.configure(text="Cancelando download...", text_color="#EF4444")
         self.btn_cancelar.configure(state="disabled")
+
+    def exibir_capa(self, url_imagem):
+        try:
+            resposta = requests.get(url_imagem, timeout=5)
+            dados_imagem = io.BytesIO(resposta.content)
+            img_pil = Image.open(dados_imagem)
+            img_ctk = ctk.CTkImage(light_image=img_pil, dark_image=img_pil, size=(280, 157))
+            self.label_capa.configure(image=img_ctk, text="")
+            
+        except Exception as e:
+            print(f"Não foi possível carregar a capa: {e}")
+
+    def ao_alterar_link(self, *args):
+        if hasattr(self, 'delay_busca') and self.delay_busca:
+            self.after_cancel(self.delay_busca)
+
+        def buscar():
+            url = self.url_var.get().strip()
+            if not url:
+                self.label_capa.configure(image=None, text="")
+                return
+            
+            if "youtu" in url:
+                def _thread():
+                    try:
+                        with yt_dlp.YoutubeDL({'quiet': True, 'skip_download': True}) as ydl:
+                            info = ydl.extract_info(url, download=False)
+                            url_da_capa = info.get('thumbnail')
+                            if url_da_capa:
+                                self.exibir_capa(url_da_capa)
+                            else:
+                                self.after(0, lambda: self.label_capa.configure(text="Capa não encontrada"))
+                    except Exception:
+                        self.after(0, lambda: self.label_capa.configure(text="Link inválido"))
+
+                threading.Thread(target=_thread, daemon=True).start()
+
+        self.delay_busca = self.after(500, buscar)
 
     def download(self):
         url = self.url_input.get()
