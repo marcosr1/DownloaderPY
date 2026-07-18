@@ -3,9 +3,11 @@ import ffmpeg_downloader as ffdl
 
 caminho_ffmpeg = ffdl.ffmpeg_path
 
-def baixar_mp3(url, qualidade, pastaD="./downloads/mp3", callback_progresso=None):
-    def hook_interno(d):
-        # 2. Atualização do Progresso
+def baixar_mp3(url, qualidade, pastaD="./downloads/mp3", callback_progresso=None, checar_cancelamento=None):
+    def hook_interno(d): 
+        if checar_cancelamento and checar_cancelamento():
+            raise yt_dlp.utils.DownloadError("Cancelado pelo usuário")
+
         if d['status'] == 'downloading' and callback_progresso:
             total = d.get('total_bytes') or d.get('total_bytes_estimate', 0)
             baixado = d.get('downloaded_bytes', 0)
@@ -34,9 +36,11 @@ def baixar_mp3(url, qualidade, pastaD="./downloads/mp3", callback_progresso=None
     except Exception as e:
         print(f"Ocorreu um erro ao baixar o áudio: {e}")
 
-def baixar_mp4(url, qualidade, pastaD="./downloads/mp4", callback_progresso=None):
-    def hook_interno(d):
-        # 2. Atualização do Progresso
+def baixar_mp4(url, qualidade, pastaD="./downloads/mp4", callback_progresso=None, checar_cancelamento=None):
+    def hook_interno(d): 
+        if checar_cancelamento and checar_cancelamento():
+            raise yt_dlp.utils.DownloadError("Cancelado pelo usuário")
+
         if d['status'] == 'downloading' and callback_progresso:
             total = d.get('total_bytes') or d.get('total_bytes_estimate', 0)
             baixado = d.get('downloaded_bytes', 0)

@@ -37,7 +37,7 @@ class baixador(ctk.CTk):
         self.btn_baixar.pack(pady=10)
 
         self.cancelar_download = False 
-        self.btn_cancelar = ctk.CTkButton(self, text="Cancelar", font=("Segoe UI", 12, "bold"),width=100, height=25, corner_radius=8, fg_color="#ff0000", hover_color="#B91C1C", state="disabled") 
+        self.btn_cancelar = ctk.CTkButton(self, text="Cancelar", font=("Segoe UI", 12, "bold"), command=self.clicar_cancelar, width=100, height=25, corner_radius=8, fg_color="#ff0000", hover_color="#B91C1C", state="disabled") 
         self.btn_cancelar.pack(pady=10)
 
         self.status_label = ctk.CTkLabel(self, text="Aguardando link...", font=ctk.CTkFont(size=12))
@@ -57,6 +57,11 @@ class baixador(ctk.CTk):
     def baixar(self):
         thread = threading.Thread(target=self.download, daemon=True)
         thread.start()
+
+    def clicar_cancelar(self):
+        self.cancelar_download = True
+        self.status_label.configure(text="Cancelando download...", text_color="#EF4444")
+        self.btn_cancelar.configure(state="disabled")
 
     def download(self):
         url = self.url_input.get()
@@ -84,21 +89,24 @@ class baixador(ctk.CTk):
             self.status_label.configure(text=f"Baixando... {formato}, {qualidade}")
             if formato == "MP3":
                 print (f"Baixando áudio de {url} com qualidade {qualidade}...")
-                baixar_mp3(url, qualidade=qualidade, callback_progresso=self.progresso.set,)
+                baixar_mp3(url, qualidade=qualidade, callback_progresso=self.progresso.set, checar_cancelamento=cancelamento)
             elif formato == "MP4":
                 print (f"Baixando vídeo de {url} com qualidade {qualidade}...")
-                baixar_mp4(url, qualidade=qualidade, callback_progresso=self.progresso.set,)
+                baixar_mp4(url, qualidade=qualidade, callback_progresso=self.progresso.set, checar_cancelamento=cancelamento)
 
-            self.progresso.set(1)
-            self.status_label.configure(text=f"Download de {formato} concluído!")
-            self.url_input.delete(0, ctk.END)
-
-        except Exception as e: 
-            if "Numero maximo de Arquivos" in str(e):
-                self.status_label.configure(text="Download concluído com sucesso!", text_color="green")
-                self.url_input.delete(0, 'end')
+            if self.cancelar_download:
+                self.status_label.configure(text="Download cancelado pelo usuário.", text_color="#EF4444")
             else:
-                self.status_label.configure(text=f"Erro: {str(e)[:50]}...", text_color="red")
+                self.status_label.configure(text="Download concluído com sucesso!", text_color="#10B981")
+                self.progresso.set(1) 
+                self.url_input.delete(0, ctk.END)
+            
+
+        except yt_dlp.utils.DownloadError as e:
+            if "cancelado" in str(e).lower():
+                self.status_label.configure(text="Download cancelado pelo usuário.", text_color="#EF4444")
+            else:
+                self.status_label.configure(text=f"Ocorreu um erro: {e}", text_color="#EF4444")
                 
         finally: 
             self.progresso.stop()
