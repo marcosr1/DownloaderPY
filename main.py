@@ -3,7 +3,16 @@ import ffmpeg_downloader as ffdl
 
 caminho_ffmpeg = ffdl.ffmpeg_path
 
-def baixar_mp3(url, qualidade, pastaD="./downloads/mp3"):
+def baixar_mp3(url, qualidade, pastaD="./downloads/mp3", callback_progresso=None):
+    def hook_interno(d):
+        # 2. Atualização do Progresso
+        if d['status'] == 'downloading' and callback_progresso:
+            total = d.get('total_bytes') or d.get('total_bytes_estimate', 0)
+            baixado = d.get('downloaded_bytes', 0)
+            if total > 0:
+                porcentagem = baixado / total
+                callback_progresso(porcentagem)
+
     ydl_opts = {
         'format': 'bestaudio/best',
         'outtmpl': f'{pastaD}/%(title)s.%(ext)s',
@@ -14,6 +23,7 @@ def baixar_mp3(url, qualidade, pastaD="./downloads/mp3"):
         }],
         'max_downloads': 1,
         'noplaylist': True,
+        'progress_hooks': [hook_interno],
     }
 
     try:
@@ -24,7 +34,16 @@ def baixar_mp3(url, qualidade, pastaD="./downloads/mp3"):
     except Exception as e:
         print(f"Ocorreu um erro ao baixar o áudio: {e}")
 
-def baixar_mp4(url, qualidade, pastaD="./downloads/mp4"):
+def baixar_mp4(url, qualidade, pastaD="./downloads/mp4", callback_progresso=None):
+    def hook_interno(d):
+        # 2. Atualização do Progresso
+        if d['status'] == 'downloading' and callback_progresso:
+            total = d.get('total_bytes') or d.get('total_bytes_estimate', 0)
+            baixado = d.get('downloaded_bytes', 0)
+            if total > 0:
+                porcentagem = baixado / total
+                callback_progresso(porcentagem)
+
     ydl_opts = {
         'format': f'bestvideo[height<={qualidade}][ext=mp4]+bestaudio[ext=m4a]/best[height<={qualidade}][ext=mp4]/best',
         'outtmpl': f'{pastaD}/%(title)s.%(ext)s',
@@ -32,6 +51,7 @@ def baixar_mp4(url, qualidade, pastaD="./downloads/mp4"):
         'merge_output_format': 'mp4',
         'max_downloads': 1,
         'noplaylist': True,
+        'progress_hooks': [hook_interno],
     }
 
     try:

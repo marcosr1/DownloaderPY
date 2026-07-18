@@ -18,24 +18,33 @@ class baixador(ctk.CTk):
         self.title("Baixador de Vídeos e Áudios")
         self.geometry("720x380")
 
-        self.label = ctk.CTkLabel(self, text="Cole o link do vídeo:")
+        self.configure(fg_color="#121212")
+
+        self.label = ctk.CTkLabel(self, text="Cole o link do vídeo:", font=ctk.CTkFont("Segoe UI", 24, "bold"))
         self.label.pack(pady=10)
 
-        self.url_input = ctk.CTkEntry(self, width=400)
+        self.url_input = ctk.CTkEntry(self, width=400, placeholder_text="Cole o link do YouTube aqui...", border_width=1, placeholder_text_color="#555555", fg_color="#1A1A1A", corner_radius=8)
         self.url_input.pack(pady=10)
 
         self.formato_var = ctk.StringVar(value="MP3")
-        self.selecao_formato = ctk.CTkSegmentedButton(self, values=["MP3", "MP4"], variable=self.formato_var, width=200, command=self.alterarOpcoes)
+        self.selecao_formato = ctk.CTkSegmentedButton(self, values=["MP3", "MP4"], variable=self.formato_var, width=200, command=self.alterarOpcoes, border_width=1, selected_color="#ff0000", fg_color="#1A1A1A", corner_radius=8)
         self.selecao_formato.pack(pady=15)
 
-        self.combobox_qualidade = ctk.CTkComboBox(self, values=["320 kbps", "256 kbps", "192 kbps", "128 kbps"])
+        self.combobox_qualidade = ctk.CTkComboBox(self, values=["320 kbps", "256 kbps", "192 kbps", "128 kbps"], border_width=1, fg_color="#1A1A1A", corner_radius=8)
         self.combobox_qualidade.pack(pady=10)
 
-        self.btn_baixar = ctk.CTkButton(self, text="Baixar", command=self.baixar)
+        self.btn_baixar = ctk.CTkButton(self, text="BAIXAR", font=("Segoe UI", 14, "bold"), command=self.baixar, fg_color="#ff0000", hover_color="#cc0000", text_color="#FFFFFF", width=150, height=40, corner_radius=8)
         self.btn_baixar.pack(pady=10)
+
+        self.cancelar_download = False 
+        self.btn_cancelar = ctk.CTkButton(self, text="Cancelar", font=("Segoe UI", 12, "bold"),width=100, height=25, corner_radius=8, fg_color="#ff0000", hover_color="#B91C1C", state="disabled") 
+        self.btn_cancelar.pack(pady=10)
 
         self.status_label = ctk.CTkLabel(self, text="Aguardando link...", font=ctk.CTkFont(size=12))
         self.status_label.pack(pady=10)
+
+        self.progresso = ctk.CTkProgressBar(self, width=400, height=10, corner_radius=4, fg_color="#1A1A1A", progress_color="#ff0000")
+        self.progresso.set(0)
 
     def alterarOpcoes(self, formato):
         if formato == "MP3":
@@ -58,21 +67,33 @@ class baixador(ctk.CTk):
             self.status_label.configure(text="Por favor, insira um link válido.")
             return
         
+        self.cancelar_download = False
         self.btn_baixar.configure(state="disabled")
+        self.btn_cancelar.configure(state="normal")
         self.status_label.configure(text="Iniciando download...") 
+        self.progresso.pack(pady=5)
+        self.progresso.set(0)
+
+        def cancelamento(d):
+            if self.cancelar_download:
+                raise yt_dlp.utils.DownloadError("Download cancelado pelo usuário.")
+            if d['status'] == 'downloading':
+                pass
 
         try:
             self.status_label.configure(text=f"Baixando... {formato}, {qualidade}")
             if formato == "MP3":
-                baixar_mp3(url, qualidade)
+                print (f"Baixando áudio de {url} com qualidade {qualidade}...")
+                baixar_mp3(url, qualidade=qualidade, callback_progresso=self.progresso.set,)
             elif formato == "MP4":
-                baixar_mp4(url, qualidade)
-            
+                print (f"Baixando vídeo de {url} com qualidade {qualidade}...")
+                baixar_mp4(url, qualidade=qualidade, callback_progresso=self.progresso.set,)
+
+            self.progresso.set(1)
             self.status_label.configure(text=f"Download de {formato} concluído!")
             self.url_input.delete(0, ctk.END)
 
-        except Exception as e:
-            
+        except Exception as e: 
             if "Numero maximo de Arquivos" in str(e):
                 self.status_label.configure(text="Download concluído com sucesso!", text_color="green")
                 self.url_input.delete(0, 'end')
@@ -80,7 +101,10 @@ class baixador(ctk.CTk):
                 self.status_label.configure(text=f"Erro: {str(e)[:50]}...", text_color="red")
                 
         finally: 
+            self.progresso.stop()
+            self.progresso.pack_forget()
             self.btn_baixar.configure(state="normal")
+            self.btn_cancelar.configure(state="disabled")
 
 if __name__ == "__main__":
     app = baixador()
