@@ -3,11 +3,12 @@ import customtkinter as ctk
 import yt_dlp
 import io
 import urllib.request
-from PIL import Image
 import requests
-import yt_dlp
+from PIL import Image
+import ffmpeg_downloader as ffdl
 
 from main import baixar_mp3, baixar_mp4
+caminho_ffmpeg = ffdl.ffmpeg_path
 
 ctk.set_appearance_mode("System")
 ctk.set_default_color_theme("blue")
@@ -24,26 +25,24 @@ class baixador(ctk.CTk):
         self.label = ctk.CTkLabel(self, text="Cole o link do vídeo:", font=ctk.CTkFont("Segoe UI", 24, "bold"))
         self.label.pack(pady=10)
 
-        self.url_var = ctk.StringVar()
-        self.url_var.trace_add("write", self.ao_alterar_link) 
-        
-        self.url_input = ctk.CTkEntry(self, width=400, textvariable=self.url_var, placeholder_text="Cole o link aqui...")
-        self.url_input.pack(pady=10)
-        
+        self.url_input = ctk.CTkEntry(self, width=400, placeholder_text="Cole o link aqui", fg_color="#1A1A1A", bg_color="#121212", border_width=1, corner_radius=8)
+        self.url_input.pack(pady=(10, 0))
+        self.url_input.bind("<KeyRelease>", self.ao_alterar_link)
+
         self.delay_busca = None
 
         self.formato_var = ctk.StringVar(value="MP3")
-        self.selecao_formato = ctk.CTkSegmentedButton(self, values=["MP3", "MP4"], variable=self.formato_var, width=200, command=self.alterarOpcoes, border_width=1, selected_color="#ff0000", fg_color="#1A1A1A", corner_radius=8)
+        self.selecao_formato = ctk.CTkSegmentedButton(self, values=["MP3", "MP4"], variable=self.formato_var, width=200, command=self.alterarOpcoes, border_width=1, selected_color="#ff0000", selected_hover_color="#640010", fg_color="#1A1A1A", corner_radius=8)
         self.selecao_formato.pack(pady=15)
 
         self.combobox_qualidade = ctk.CTkComboBox(self, values=["320 kbps", "256 kbps", "192 kbps", "128 kbps"], border_width=1, fg_color="#1A1A1A", corner_radius=8)
         self.combobox_qualidade.pack(pady=10)
 
-        self.btn_baixar = ctk.CTkButton(self, text="BAIXAR", font=("Segoe UI", 14, "bold"), command=self.baixar, fg_color="#ff0000", hover_color="#cc0000", text_color="#FFFFFF", width=150, height=40, corner_radius=8)
+        self.btn_baixar = ctk.CTkButton(self, text="BAIXAR", font=("Segoe UI", 14, "bold"), command=self.baixar, fg_color="#ff0000", hover_color="#640010", text_color="#FFFFFF", width=150, height=40, corner_radius=8)
         self.btn_baixar.pack(pady=10)
 
         self.cancelar_download = False 
-        self.btn_cancelar = ctk.CTkButton(self, text="Cancelar", font=("Segoe UI", 12, "bold"), command=self.clicar_cancelar, width=100, height=25, corner_radius=8, fg_color="#ff0000", hover_color="#B91C1C", state="disabled") 
+        self.btn_cancelar = ctk.CTkButton(self, text="Cancelar", font=("Segoe UI", 12, "bold"), command=self.clicar_cancelar, width=100, height=25, corner_radius=8, fg_color="#ff0000", hover_color="#640010", state="disabled") 
         self.btn_cancelar.pack(pady=10)
 
         self.label_capa = ctk.CTkLabel(self, text="")
@@ -54,6 +53,14 @@ class baixador(ctk.CTk):
 
         self.progresso = ctk.CTkProgressBar(self, width=400, height=10, corner_radius=4, fg_color="#1A1A1A", progress_color="#ff0000")
         self.progresso.set(0)
+
+        self.frame_rodape = ctk.CTkFrame(self, fg_color="transparent")
+        self.frame_rodape.pack(side="bottom", pady=(20, 0))
+        estilo_icone = {"font": ("Segoe UI", 16), "text_color": "#888888", "cursor": "hand2"}
+
+        self.lbl_yt = ctk.CTkLabel(self.frame_rodape, text="Download direto das principais plataformas", **estilo_icone)
+        self.lbl_yt.pack(side="left", padx=15)
+        
 
     def alterarOpcoes(self, formato):
         if formato == "MP3":
@@ -88,7 +95,7 @@ class baixador(ctk.CTk):
             self.after_cancel(self.delay_busca)
 
         def buscar():
-            url = self.url_var.get().strip()
+            url = self.url_input.get().strip()
             if not url:
                 self.label_capa.configure(image=None, text="")
                 return
@@ -96,15 +103,20 @@ class baixador(ctk.CTk):
             if "youtu" in url:
                 def _thread():
                     try:
-                        with yt_dlp.YoutubeDL({'quiet': True, 'skip_download': True}) as ydl:
-                            info = ydl.extract_info(url, download=False)
-                            url_da_capa = info.get('thumbnail')
-                            if url_da_capa:
-                                self.exibir_capa(url_da_capa)
-                            else:
-                                self.after(0, lambda: self.label_capa.configure(text="Capa não encontrada"))
-                    except Exception:
-                        self.after(0, lambda: self.label_capa.configure(text="Link inválido"))
+                        video_id = None
+                        if "v=" in url:
+                            video_id = url.split("v=")[1].split("&")[0]
+                        elif "youtu.be/" in url:
+                            video_id = url.split("youtu.be/")[1].split("?")[0].split("&")[0]
+                        if video_id:
+                            url_da_capa = f"https://img.youtube.com/vi/{video_id}/mqdefault.jpg"
+                            self.exibir_capa(url_da_capa)
+                        else:
+                            self.after(0, lambda: self.label_capa.configure(text="Capa não encontrada"))
+                            
+                    except Exception as erro:
+                        print(f"Erro ao gerar a capa: {erro}")
+                        self.after(0, lambda: self.label_capa.configure(text="Erro ao carregar capa"))
 
                 threading.Thread(target=_thread, daemon=True).start()
 
